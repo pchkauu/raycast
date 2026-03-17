@@ -26,7 +26,7 @@
       "name": "decode-qr-without-formatting-and-copy-to-clipboard",
       "title": "Decode QR from Clipboard",
       "description": "Decode the first QR code in a clipboard image and copy the result",
-      "mode": "view"
+      "mode": "no-view"
     }
   ],
   "dependencies": {
