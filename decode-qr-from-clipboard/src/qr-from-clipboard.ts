@@ -139,7 +139,7 @@ async function decodeFirstQrCodeFromPng(imagePath: string): Promise<string> {
     throw new Error("Decoded QR code was empty.");
   }
 
-  return decodedCode.data;
+  return normalizeDecodedPayload(decodedCode.data);
 }
 
 function decodeQrWithFallbacks(pixelData: Uint8ClampedArray, width: number, height: number) {
@@ -176,6 +176,23 @@ function applyThreshold(pixelData: Uint8ClampedArray, threshold: number): Uint8C
   }
 
   return thresholdedData;
+}
+
+function normalizeDecodedPayload(payload: string): string {
+  if (!looksLikeJson(payload)) {
+    return payload;
+  }
+
+  return payload.replace(/[“”]/g, '"');
+}
+
+function looksLikeJson(payload: string): boolean {
+  const trimmedPayload = payload.trim();
+
+  return (
+    (trimmedPayload.startsWith("{") && trimmedPayload.endsWith("}")) ||
+    (trimmedPayload.startsWith("[") && trimmedPayload.endsWith("]"))
+  );
 }
 
 function getExecErrorOutput(error: unknown): string {
