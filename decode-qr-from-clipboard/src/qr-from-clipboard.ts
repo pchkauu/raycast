@@ -9,37 +9,44 @@ import { PNG } from "pngjs";
 
 const execFileAsync = promisify(execFile);
 
-const swiftClipboardExportScript = String.raw`
-import AppKit
-import Foundation
+const jxaClipboardExportScript = String.raw`
+ObjC.import("AppKit");
+ObjC.import("Foundation");
 
-let arguments = CommandLine.arguments
+function run(argv) {
+  const outputPath = argv[0];
 
-guard arguments.count > 1 else {
-  fputs("MISSING_OUTPUT_PATH\n", stderr)
-  exit(2)
-}
+  if (!outputPath) {
+    throw new Error("MISSING_OUTPUT_PATH");
+  }
 
-let outputPath = arguments[1]
-let pasteboard = NSPasteboard.general
+  const pasteboard = $.NSPasteboard.generalPasteboard;
+  const image = $.NSImage.alloc.initWithPasteboard(pasteboard);
+  const tiffData = image.TIFFRepresentation;
 
-guard let image = NSImage(pasteboard: pasteboard) else {
-  fputs("NO_IMAGE\n", stderr)
-  exit(3)
-}
+  if (!tiffData) {
+    throw new Error("NO_IMAGE");
+  }
 
-guard let tiffData = image.tiffRepresentation,
-      let bitmap = NSBitmapImageRep(data: tiffData),
-      let pngData = bitmap.representation(using: .png, properties: [:]) else {
-  fputs("PNG_EXPORT_FAILED\n", stderr)
-  exit(4)
-}
+  const bitmap = $.NSBitmapImageRep.imageRepWithData(tiffData);
 
-do {
-  try pngData.write(to: URL(fileURLWithPath: outputPath))
-} catch {
-  fputs("WRITE_FAILED\n", stderr)
-  exit(5)
+  if (!bitmap) {
+    throw new Error("PNG_EXPORT_FAILED");
+  }
+
+  const pngData = bitmap.representationUsingTypeProperties($.NSPNGFileType, null);
+
+  if (!pngData) {
+    throw new Error("PNG_EXPORT_FAILED");
+  }
+
+  const didWrite = pngData.writeToFileAtomically(outputPath, true);
+
+  if (!didWrite) {
+    throw new Error("WRITE_FAILED");
+  }
+
+  return "OK";
 }
 `;
 
@@ -61,7 +68,7 @@ export async function decodeFirstQrCodeFromClipboard(): Promise<string> {
 
 async function exportClipboardImageToPng(outputPath: string): Promise<void> {
   try {
-    await execFileAsync("/usr/bin/swift", ["-e", swiftClipboardExportScript, outputPath]);
+    await execFileAsync("/usr/bin/osascript", ["-l", "JavaScript", "-e", jxaClipboardExportScript, outputPath]);
   } catch (error) {
     const stderr = getExecErrorStderr(error);
 
